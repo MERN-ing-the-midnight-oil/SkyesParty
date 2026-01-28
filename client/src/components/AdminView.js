@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import './AdminView.css';
+import { getRSVPs, getStats } from '../services/githubGist';
 
-const AdminView = ({ apiUrl }) => {
+const AdminView = () => {
   const [rsvps, setRsvps] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -14,16 +14,16 @@ const AdminView = ({ apiUrl }) => {
 
   const loadData = async () => {
     try {
-      const [rsvpsResponse, statsResponse] = await Promise.all([
-        axios.get(`${apiUrl}/admin/rsvps`),
-        axios.get(`${apiUrl}/admin/stats`)
+      const [rsvpsData, statsData] = await Promise.all([
+        getRSVPs(),
+        getStats()
       ]);
 
-      setRsvps(rsvpsResponse.data.rsvps || []);
-      setStats(statsResponse.data);
+      setRsvps(rsvpsData || []);
+      setStats(statsData);
       setError(null);
     } catch (err) {
-      setError('Failed to load RSVPs. Make sure the server is running.');
+      setError(err.message || 'Failed to load RSVPs. Please check your GitHub token configuration.');
       console.error('Error loading data:', err);
     } finally {
       setLoading(false);
@@ -114,7 +114,7 @@ const AdminView = ({ apiUrl }) => {
         
         {rsvps.length === 0 ? (
           <div className="no-rsvps">
-            <p>No RSVPs yet. Share your magic link to start receiving responses!</p>
+            <p>No RSVPs yet. Share your RSVP link to start receiving responses!</p>
           </div>
         ) : (
           <>

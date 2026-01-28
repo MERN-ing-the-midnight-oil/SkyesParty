@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState } from 'react';
 import './RSVPForm.css';
+import { addRSVP } from '../services/githubGist';
 
-const RSVPForm = ({ token, apiUrl }) => {
+const RSVPForm = () => {
   const [formData, setFormData] = useState({
     email: '',
     name: '',
@@ -12,30 +12,9 @@ const RSVPForm = ({ token, apiUrl }) => {
     num_kids: 0,
     message: ''
   });
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
-
-  useEffect(() => {
-    // Verify token is valid
-    verifyToken();
-  }, [token]);
-
-  const verifyToken = async () => {
-    try {
-      const response = await axios.get(`${apiUrl}/auth/verify-token/${token}`);
-      if (response.data && response.data.valid) {
-        setError(null);
-      } else {
-        setError('Invalid magic link. Please use the link from your email.');
-      }
-    } catch (err) {
-      setError('Invalid or expired magic link. Please use the link from your email.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -96,28 +75,35 @@ const RSVPForm = ({ token, apiUrl }) => {
     }
 
     try {
-      const response = await axios.post(`${apiUrl}/rsvp/submit`, {
-        token,
-        ...formData
-      });
+      const rsvpData = {
+        email: formData.email.trim(),
+        name: formData.name.trim(),
+        child_name: formData.child_name ? formData.child_name.trim() : null,
+        going: formData.going,
+        num_adults: formData.num_adults || 0,
+        num_kids: formData.num_kids || 0,
+        message: formData.message ? formData.message.trim() : null
+      };
 
-      if (response.data.success) {
-        setMessage('Thank you! Your RSVP has been submitted successfully! 🎉');
-      }
+      await addRSVP(rsvpData);
+      setMessage('Thank you! Your RSVP has been submitted successfully! 🎉');
+      
+      // Reset form
+      setFormData({
+        email: '',
+        name: '',
+        child_name: '',
+        going: null,
+        num_adults: 0,
+        num_kids: 0,
+        message: ''
+      });
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to submit RSVP. Please try again.');
+      setError(err.message || 'Failed to submit RSVP. Please try again.');
     } finally {
       setSubmitting(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="rsvp-container">
-        <div className="loading-spinner"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="rsvp-container">

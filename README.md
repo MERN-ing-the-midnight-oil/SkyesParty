@@ -1,25 +1,25 @@
 # Skye's 4th Birthday Party RSVP System 🎉
 
-A beautiful, modern RSVP system for Skye's birthday party with magic link authentication.
+A beautiful, modern RSVP system for Skye's birthday party - **100% frontend, no backend required!** Uses GitHub Gists API as a lightweight database.
 
 ## Features
 
-- ✨ Single shared magic link - anyone with the link can RSVP
+- 🚀 **No Backend Required** - Uses GitHub Gists API for data storage
 - 📝 Simple RSVP form with going/not going options
 - 👥 Track number of adults and kids attending
-- 💾 SQLite database for storing RSVPs
+- 💾 GitHub Gist storage (private, secure)
 - 🎨 Beautiful, responsive UI
-- 📧 Optional email notifications with styled HTML emails
+- 🌐 Deploy to GitHub Pages with zero configuration
 
 ## Project Structure
 
 ```
 SkyesParty/
-├── server/          # Backend Express server
-│   ├── routes/      # API routes
-│   ├── services/    # Email service
-│   └── db.js        # Database setup
 ├── client/          # React frontend
+│   ├── src/
+│   │   ├── components/  # RSVP form and admin view
+│   │   └── services/    # GitHub Gist service
+│   └── public/
 └── README.md
 ```
 
@@ -28,119 +28,67 @@ SkyesParty/
 ### 1. Install Dependencies
 
 ```bash
-npm run install-all
+cd client
+npm install
 ```
 
-This will install dependencies for the root, server, and client.
+### 2. Create a GitHub Personal Access Token
 
-### 2. Configure Environment Variables
+The app uses GitHub Gists API to store RSVPs. You'll need a GitHub Personal Access Token:
 
-Create a `.env` file in the `server/` directory:
+1. Go to GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
+2. Click "Generate new token (classic)"
+3. Give it a name like "Skye Party RSVP"
+4. Select the `gist` scope (this allows creating and updating gists)
+5. Click "Generate token"
+6. **Copy the token immediately** (you won't be able to see it again!)
 
-```bash
-cd server
-cp .env.example .env
-```
+### 3. Configure the Token
 
-Edit `server/.env` with your configuration:
+You have two options:
+
+#### Option A: Environment Variable (Recommended for Development)
+
+Create a `.env` file in the `client/` directory:
 
 ```env
-PORT=5000
-FRONTEND_URL=http://localhost:3000
-
-# Email Configuration (for sending magic links and RSVP notifications)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
-FROM_EMAIL=your-email@gmail.com
-
-# Admin email for RSVP notifications (defaults to r.smoker@gmail.com)
-ADMIN_EMAIL=r.smoker@gmail.com
+REACT_APP_GITHUB_TOKEN=your_github_token_here
 ```
 
-Save this as `server/.env` (create the file if it doesn't exist).
+#### Option B: URL Parameter (Works for GitHub Pages)
 
-**For Gmail users:**
-- You'll need to create an [App Password](https://support.google.com/accounts/answer/185833)
-- Enable 2-factor authentication on your Google account
-- Use the app password (not your regular password) in `SMTP_PASS`
+You can pass the token as a URL parameter:
+```
+https://your-site.github.io/SkyesParty?token=your_github_token_here
+```
 
-**Note:** If you don't configure email, the system will work in "mock mode" and print magic links/notifications to the console instead of sending emails.
+**Note:** For production on GitHub Pages, you'll want to set the token as a GitHub Secret and use it in the build process (see Deployment section).
 
-**RSVP Notifications:** You'll receive an email notification at `ADMIN_EMAIL` (defaults to r.smoker@gmail.com) every time someone submits an RSVP. The notification includes RSVP details and a link to the admin dashboard.
-
-### 3. Run the Application
-
-From the root directory:
+### 4. Run the Application
 
 ```bash
-npm run dev
+cd client
+npm start
 ```
 
-This will start both the backend server (port 5000) and frontend React app (port 3000).
-
-Or run them separately:
-
-```bash
-# Terminal 1 - Backend
-npm run server
-
-# Terminal 2 - Frontend
-npm run client
-```
-
-## Generating the Magic Link
-
-The system uses a **single shared magic link** that anyone can use to RSVP. This makes it simple - just share one link with all your guests!
-
-### Option 1: Using the Helper Script (Recommended)
-
-```bash
-cd server
-node generate-links.js
-```
-
-This will create or retrieve the magic link. You can also optionally send it via email:
-
-```bash
-node generate-links.js guest@example.com
-```
-
-### Option 2: Using the API
-
-Get the current link:
-```bash
-curl http://localhost:5000/api/auth/get-link
-```
-
-Create a new link (or get existing):
-```bash
-curl -X POST http://localhost:5000/api/auth/generate-link \
-  -H "Content-Type: application/json" \
-  -d '{"email": "guest@example.com"}'  # email is optional
-```
+The app will open at `http://localhost:3000`
 
 ## How It Works
 
-1. **Generate One Magic Link**: Create a single shared magic link (or get the existing one)
-2. **Share the Link**: Send the link to all your guests via email, text, or any method you prefer
-3. **Guest Clicks Link**: Guest clicks the link
-4. **RSVP Form**: Guest fills out the form (name, email optional, going/not going, number of adults/kids)
-5. **Submit**: RSVP is saved to the database - anyone with the link can submit!
+1. **Share the RSVP Link**: Share `https://your-site.github.io/SkyesParty` with your guests
+2. **Guest Fills Form**: Guest fills out the RSVP form (name, email, going/not going, number of adults/kids)
+3. **Submit**: RSVP is saved to a private GitHub Gist
+4. **View Admin**: Access admin view at `https://your-site.github.io/SkyesParty/admin` to see all RSVPs
 
-## Database
+## Data Storage
 
-The system uses SQLite (stored in `server/rsvp.db`). The database includes:
-
-- `magic_links` table: Stores the single shared magic link token
-- `rsvps` table: Stores all RSVP responses (email is optional)
+RSVPs are stored in a private GitHub Gist. The Gist ID is automatically saved in your browser's localStorage after the first RSVP is submitted. All data is stored securely in your GitHub account.
 
 ## Viewing RSVPs
 
-### Admin Dashboard (Recommended)
+### Admin Dashboard
 
-Access the admin dashboard at: **`http://localhost:3000/admin`**
+Access the admin dashboard at: **`http://localhost:3000/admin`** (or your deployed URL + `/admin`)
 
 This beautiful interface shows:
 - 📊 Statistics (total RSVPs, going/not going, total adults/kids)
@@ -150,85 +98,64 @@ This beautiful interface shows:
 
 **Note:** Keep this URL secret! Anyone who knows the URL can view all RSVPs. For production, you may want to add password protection.
 
-### API Endpoints
+### Viewing the Gist Directly
 
-You can also access RSVPs via API:
-
-```bash
-# Get all RSVPs
-curl http://localhost:5000/api/admin/rsvps
-
-# Get statistics
-curl http://localhost:5000/api/admin/stats
-```
-
-### Database Query
-
-Or query the database directly:
-
-```bash
-sqlite3 server/rsvp.db "SELECT * FROM rsvps;"
-```
+You can also view the RSVPs directly on GitHub:
+1. Go to your GitHub Gists: https://gist.github.com
+2. Look for a gist named "Skye's Party RSVPs"
+3. Click on it to view the JSON data
 
 ## Production Deployment
 
-### Frontend - GitHub Pages
+### Deploy to GitHub Pages
 
-The frontend is configured for automatic deployment to GitHub Pages:
+The app is configured for automatic deployment to GitHub Pages:
 
-1. **Create a GitHub repository** (if you haven't already):
-   ```bash
-   # On GitHub, create a new repository named "SkyesParty" (or your preferred name)
-   ```
-
-2. **Update the homepage URL** in `client/package.json`:
-   - If your repo is `https://github.com/username/SkyesParty`, the homepage should be:
-     ```json
-     "homepage": "https://username.github.io/SkyesParty"
-     ```
-
-3. **Push to GitHub**:
+1. **Push to GitHub** (if you haven't already):
    ```bash
    git remote add origin https://github.com/username/SkyesParty.git
    git branch -M main
    git push -u origin main
    ```
 
-4. **Enable GitHub Pages**:
+2. **Enable GitHub Pages**:
    - Go to your repository on GitHub
    - Navigate to **Settings** → **Pages**
    - Under **Source**, select **GitHub Actions**
    - The workflow will automatically deploy when you push to `main`
 
-5. **Configure API URL** (if your backend is hosted elsewhere):
+3. **Configure GitHub Token for Production**:
    - Go to repository **Settings** → **Secrets and variables** → **Actions**
-   - Add a secret named `REACT_APP_API_URL` with your backend API URL
-   - Example: `https://your-backend.railway.app/api` or `https://your-backend.render.com/api`
+   - Add a secret named `REACT_APP_GITHUB_TOKEN` with your GitHub Personal Access Token
+   - The GitHub Actions workflow will automatically use this token during the build
+
+4. **Update Homepage URL** (if needed):
+   - If your repo is `https://github.com/username/SkyesParty`, the homepage in `client/package.json` should be:
+     ```json
+     "homepage": "https://username.github.io/SkyesParty"
+     ```
 
 Your site will be available at: `https://username.github.io/SkyesParty`
 
-### Backend Deployment
-
-The backend needs to be deployed separately (GitHub Pages only serves static files). Options:
-
-- **Railway**: Easy deployment, free tier available
-- **Render**: Free tier available
-- **Heroku**: Paid plans available
-- **Vercel/Netlify Functions**: For serverless approach
-
-For backend deployment:
-
-1. Set `FRONTEND_URL` to your GitHub Pages URL
-2. Configure proper SMTP settings
-3. Use a production database (PostgreSQL, MySQL, etc.) instead of SQLite
-4. Set up proper environment variables
-5. Update the `REACT_APP_API_URL` secret in GitHub to point to your deployed backend
+**Note:** The GitHub token is injected during the build process, so it's safe to use in the deployed app. The token is only used client-side to access the GitHub Gists API.
 
 ## Troubleshooting
 
-- **Email not sending?** Check your SMTP credentials. The system will work in mock mode if credentials aren't set. You can always just copy the link and send it manually!
-- **Token invalid?** Make sure you're using the correct token. Use `node generate-links.js` to get the current link.
-- **Database errors?** Make sure the `server/` directory is writable for SQLite to create the database file.
+- **"GitHub token not found" error?** 
+  - Make sure you've created a GitHub Personal Access Token with `gist` scope
+  - For local development: Create a `.env` file in `client/` with `REACT_APP_GITHUB_TOKEN=your_token`
+  - For GitHub Pages: Add the token as a secret named `REACT_APP_GITHUB_TOKEN` in repository Settings → Secrets
+  - Or pass it as a URL parameter: `?token=your_token_here`
+
+- **RSVPs not saving?** 
+  - Check that your GitHub token has the `gist` scope enabled
+  - Check the browser console for error messages
+  - Verify the token is valid by testing it at https://api.github.com/user (with Authorization header)
+
+- **Admin view not loading?**
+  - Make sure you're accessing `/admin` route
+  - Check that the GitHub token is configured correctly
+  - The Gist will be created automatically on the first RSVP submission
 
 ## License
 
