@@ -172,14 +172,57 @@ sqlite3 server/rsvp.db "SELECT * FROM rsvps;"
 
 ## Production Deployment
 
-For production:
+### Frontend - GitHub Pages
 
-1. Set `FRONTEND_URL` to your production domain
+The frontend is configured for automatic deployment to GitHub Pages:
+
+1. **Create a GitHub repository** (if you haven't already):
+   ```bash
+   # On GitHub, create a new repository named "SkyesParty" (or your preferred name)
+   ```
+
+2. **Update the homepage URL** in `client/package.json`:
+   - If your repo is `https://github.com/username/SkyesParty`, the homepage should be:
+     ```json
+     "homepage": "https://username.github.io/SkyesParty"
+     ```
+
+3. **Push to GitHub**:
+   ```bash
+   git remote add origin https://github.com/username/SkyesParty.git
+   git branch -M main
+   git push -u origin main
+   ```
+
+4. **Enable GitHub Pages**:
+   - Go to your repository on GitHub
+   - Navigate to **Settings** → **Pages**
+   - Under **Source**, select **GitHub Actions**
+   - The workflow will automatically deploy when you push to `main`
+
+5. **Configure API URL** (if your backend is hosted elsewhere):
+   - Go to repository **Settings** → **Secrets and variables** → **Actions**
+   - Add a secret named `REACT_APP_API_URL` with your backend API URL
+   - Example: `https://your-backend.railway.app/api` or `https://your-backend.render.com/api`
+
+Your site will be available at: `https://username.github.io/SkyesParty`
+
+### Backend Deployment
+
+The backend needs to be deployed separately (GitHub Pages only serves static files). Options:
+
+- **Railway**: Easy deployment, free tier available
+- **Render**: Free tier available
+- **Heroku**: Paid plans available
+- **Vercel/Netlify Functions**: For serverless approach
+
+For backend deployment:
+
+1. Set `FRONTEND_URL` to your GitHub Pages URL
 2. Configure proper SMTP settings
 3. Use a production database (PostgreSQL, MySQL, etc.) instead of SQLite
 4. Set up proper environment variables
-5. Build the React app: `cd client && npm run build`
-6. Serve the built files with your server or a static file server
+5. Update the `REACT_APP_API_URL` secret in GitHub to point to your deployed backend
 
 ## Troubleshooting
 
