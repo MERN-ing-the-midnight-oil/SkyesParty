@@ -62,9 +62,6 @@ const AdminView = () => {
     );
   }
 
-  const goingRsvps = rsvps.filter(r => r.going);
-  const notGoingRsvps = rsvps.filter(r => !r.going);
-
   return (
     <div className="admin-container">
       <div className="admin-header">

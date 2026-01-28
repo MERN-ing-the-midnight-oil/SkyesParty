@@ -84,7 +84,7 @@ export const getRSVPs = async () => {
 
   if (!gistId) {
     // Try to create a new Gist
-    const newGistId = await createGist();
+    await createGist();
     return [];
   }
 
@@ -99,7 +99,7 @@ export const getRSVPs = async () => {
     if (!response.ok) {
       if (response.status === 404) {
         // Gist doesn't exist, create a new one
-        const newGistId = await createGist();
+        await createGist();
         return [];
       }
       const error = await response.json();
