@@ -1,0 +1,19 @@
+{
+  "name": "skyes-party-rsvp",
+  "version": "1.0.0",
+  "description": "RSVP system for Skye's 4th birthday party",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm start",
+    "install-all": "npm install && cd server && npm install && cd ../client && npm install"
+  },
+  "keywords": ["rsvp", "party", "birthday"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
+
