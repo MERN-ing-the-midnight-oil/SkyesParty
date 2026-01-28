@@ -43,6 +43,7 @@ jobs:
           npm run build
         env:
           REACT_APP_GITHUB_TOKEN: ${{ secrets.REACT_APP_GITHUB_TOKEN }}
+          CI: false
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
