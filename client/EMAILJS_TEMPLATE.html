@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #ffffff;
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+      border-radius: 10px 10px 0 0;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+    .content {
+      padding: 30px;
+      background: #f9f9f9;
+    }
+    .rsvp-details {
+      background: white;
+      padding: 25px;
+      border-radius: 8px;
+      margin: 20px 0;
+      border-left: 4px solid #667eea;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .rsvp-details p {
+      margin: 12px 0;
+      font-size: 16px;
+    }
+    .rsvp-details strong {
+      color: #667eea;
+      display: inline-block;
+      min-width: 120px;
+    }
+    .status-going {
+      color: #28a745;
+      font-weight: bold;
+      font-size: 18px;
+    }
+    .status-not-going {
+      color: #dc3545;
+      font-weight: bold;
+      font-size: 18px;
+    }
+    .message-box {
+      background: #f9f9f9;
+      padding: 15px;
+      border-radius: 6px;
+      margin-top: 10px;
+      white-space: pre-wrap;
+      border-left: 3px solid #667eea;
+    }
+    .footer {
+      text-align: center;
+      padding: 20px;
+      color: #666;
+      font-size: 12px;
+      background: #f9f9f9;
+      border-radius: 0 0 10px 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎉 New RSVP Received! 🎉</h1>
+    </div>
+    <div class="content">
+      <p>Someone just submitted an RSVP for Skye's 4th Birthday Party!</p>
+      
+      <div class="rsvp-details">
+        <p><strong>Name:</strong> {{from_name}}</p>
+        <p><strong>Email:</strong> {{from_email}}</p>
+        <p><strong>Child's Name:</strong> {{child_name}}</p>
+        <p><strong>Status:</strong> <span class="status-going">{{going}}</span></p>
+        <p><strong>Adults:</strong> {{num_adults}}</p>
+        <p><strong>Kids:</strong> {{num_kids}}</p>
+        <p><strong>Total People:</strong> {{total_people}}</p>
+        <p><strong>Message:</strong></p>
+        <div class="message-box">{{message}}</div>
+        <p><strong>Submitted:</strong> {{submitted_at}}</p>
+      </div>
+      
+      <p style="margin-top: 30px; color: #666; font-size: 14px;">
+        This is an automated notification from the RSVP system.
+      </p>
+    </div>
+    <div class="footer">
+      <p>Skye's 4th Birthday Party RSVP System</p>
+    </div>
+  </div>
+</body>
+</html>
+

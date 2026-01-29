@@ -3,6 +3,7 @@
 // Pure frontend - no backend required!
 
 import { getRSVPs as getRSVPsFromGist, addRSVP } from './githubGist';
+import { sendRSVPNotification } from './emailService';
 
 // Get access token from URL (for private event access control)
 const getAccessToken = () => {
@@ -44,6 +45,13 @@ export const submitRSVP = async (rsvpData) => {
   try {
     // Use addRSVP from githubGist.js which handles all the Gist operations
     const newRSVP = await addRSVP(rsvpData);
+    
+    // Send email notification (don't wait for it - send in background)
+    sendRSVPNotification(newRSVP).catch(err => {
+      console.error('Failed to send email notification:', err);
+      // Don't fail the request if email fails
+    });
+    
     return newRSVP;
   } catch (error) {
     console.error('Error submitting RSVP:', error);
