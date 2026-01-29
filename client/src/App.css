@@ -53,3 +53,11 @@
   margin: 0;
   font-size: 1.1rem;
 }
+
+.error-message code {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+}

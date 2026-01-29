@@ -3,9 +3,24 @@ import './App.css';
 import RSVPForm from './components/RSVPForm';
 import AdminView from './components/AdminView';
 
+// Get the expected access token from environment variable
+// You can set this during build: REACT_APP_ACCESS_TOKEN=your_secret_token
+const EXPECTED_ACCESS_TOKEN = process.env.REACT_APP_ACCESS_TOKEN || '';
+
+// Check if access token is valid
+const isValidAccessToken = (token) => {
+  // If no access token is configured, allow access (backward compatibility)
+  if (!EXPECTED_ACCESS_TOKEN) {
+    return true;
+  }
+  // Otherwise, check if the provided token matches
+  return token === EXPECTED_ACCESS_TOKEN;
+};
+
 function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [hasAccess, setHasAccess] = useState(false);
 
   useEffect(() => {
     // Check if this is the admin page
@@ -30,7 +45,15 @@ function App() {
       return;
     }
 
-    // Not admin page, show RSVP form
+    // Check for access token in URL
+    const urlParams = new URLSearchParams(search);
+    const accessToken = urlParams.get('access');
+    
+    // Validate access token
+    if (isValidAccessToken(accessToken)) {
+      setHasAccess(true);
+    }
+
     setLoading(false);
   }, []);
 
@@ -49,6 +72,23 @@ function App() {
     return (
       <div className="App">
         <AdminView />
+      </div>
+    );
+  }
+
+  // Check access for RSVP form
+  if (!hasAccess) {
+    return (
+      <div className="App">
+        <div className="error-container">
+          <h1>🔒 Private Event</h1>
+          <div className="error-message">
+            <p>This RSVP form is private. Please use the access link provided to you.</p>
+            <p style={{ marginTop: '10px', fontSize: '0.9rem', opacity: 0.9 }}>
+              If you have the access link, make sure it includes <code>?access=YOUR_TOKEN</code> in the URL.
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
