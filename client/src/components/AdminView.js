@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './AdminView.css';
-import { getRSVPs, getStats } from '../services/githubGist';
+import { getRSVPs, getStats, clearAllRSVPs } from '../services/githubGist';
 
 const AdminView = () => {
   const [rsvps, setRsvps] = useState([]);
@@ -241,6 +241,46 @@ const AdminView = () => {
 
       <div className="admin-actions">
         <button onClick={loadData} className="refresh-button">🔄 Refresh</button>
+        <button 
+          onClick={async () => {
+            const confirmed = window.confirm(
+              `Are you sure you want to delete ALL ${rsvps.length} RSVPs? This action cannot be undone.\n\nClick OK to confirm deletion.`
+            );
+            if (confirmed) {
+              try {
+                setLoading(true);
+                setError(null);
+                await clearAllRSVPs();
+                // Wait a moment for GitHub to process the update
+                await new Promise(resolve => setTimeout(resolve, 500));
+                // Force reload with cache busting
+                await loadData();
+                // Clear any cached data
+                setRsvps([]);
+                setStats(null);
+                // Reload again to get fresh data
+                await loadData();
+                alert('All RSVPs have been successfully deleted. The page will refresh.');
+                // Force a hard refresh
+                window.location.reload();
+              } catch (err) {
+                console.error('Clear RSVPs error:', err);
+                setError(err.message || 'Failed to clear RSVPs');
+                alert(`Error: ${err.message || 'Failed to clear RSVPs'}\n\nCheck the browser console for more details.`);
+              } finally {
+                setLoading(false);
+              }
+            }
+          }}
+          className="refresh-button"
+          style={{ 
+            backgroundColor: '#dc3545', 
+            marginLeft: '10px' 
+          }}
+          disabled={rsvps.length === 0}
+        >
+          🗑️ Clear All RSVPs
+        </button>
       </div>
 
       <div className="rsvps-section">
