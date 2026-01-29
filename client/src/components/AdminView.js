@@ -7,10 +7,36 @@ const AdminView = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [tokenInput, setTokenInput] = useState('');
+  const [showTokenInput, setShowTokenInput] = useState(false);
 
   useEffect(() => {
+    // Check if token is missing
+    const urlParams = new URLSearchParams(window.location.search);
+    const tokenFromUrl = urlParams.get('token');
+    const tokenFromStorage = sessionStorage.getItem('github_token');
+    // Note: We don't check config/env here since getGitHubToken() will handle it
+    // If token is in config, it will work automatically
+    
+    if (!tokenFromUrl && !tokenFromStorage) {
+      // Check if token exists in config or env (via getGitHubToken)
+      // We'll let loadData() try first, and if it fails, show the input
+      loadData();
+      return;
+    }
+    
     loadData();
   }, []);
+
+  const handleTokenSubmit = (e) => {
+    e.preventDefault();
+    if (tokenInput.trim()) {
+      sessionStorage.setItem('github_token', tokenInput.trim());
+      setShowTokenInput(false);
+      setLoading(true);
+      loadData();
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -23,7 +49,13 @@ const AdminView = () => {
       setStats(statsData);
       setError(null);
     } catch (err) {
-      setError(err.message || 'Failed to load RSVPs. Please check your GitHub token configuration.');
+      const errorMessage = err.message || 'Failed to load RSVPs. Please check your GitHub token configuration.';
+      setError(errorMessage);
+      
+      // If it's a token error, show the token input
+      if (errorMessage.includes('token') || errorMessage.includes('Token')) {
+        setShowTokenInput(true);
+      }
       console.error('Error loading data:', err);
     } finally {
       setLoading(false);
@@ -42,6 +74,93 @@ const AdminView = () => {
     });
   };
 
+  if (showTokenInput) {
+    return (
+      <div className="admin-container">
+        <div className="error-message" style={{ maxWidth: '600px', margin: '0 auto' }}>
+          <h2>🔑 GitHub Token Required</h2>
+          <p style={{ marginBottom: '20px' }}>
+            The admin dashboard needs a GitHub Personal Access Token to access your RSVPs stored in a GitHub Gist.
+          </p>
+          
+          <div style={{ 
+            backgroundColor: '#f8f9fa', 
+            padding: '15px', 
+            borderRadius: '8px', 
+            marginBottom: '20px',
+            fontSize: '0.9rem'
+          }}>
+            <p><strong>How to get a GitHub Token:</strong></p>
+            <ol style={{ marginLeft: '20px', marginTop: '10px' }}>
+              <li>Go to <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">GitHub Settings → Developer settings → Personal access tokens</a></li>
+              <li>Click "Generate new token (classic)"</li>
+              <li>Give it a name like "Skye's Party Admin"</li>
+              <li>Select the <strong>gist</strong> scope (check the "gist" checkbox)</li>
+              <li>Click "Generate token" and copy it</li>
+            </ol>
+          </div>
+
+          <form onSubmit={handleTokenSubmit} style={{ marginTop: '20px' }}>
+            <div style={{ marginBottom: '15px' }}>
+              <label htmlFor="token-input" style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+                Enter your GitHub Personal Access Token:
+              </label>
+              <input
+                id="token-input"
+                type="password"
+                value={tokenInput}
+                onChange={(e) => setTokenInput(e.target.value)}
+                placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  fontSize: '14px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontFamily: 'monospace'
+                }}
+                autoFocus
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button 
+                type="submit" 
+                className="retry-button"
+                disabled={!tokenInput.trim()}
+                style={{ flex: 1 }}
+              >
+                Submit Token
+              </button>
+              <button 
+                type="button"
+                onClick={() => {
+                  const url = new URL(window.location);
+                  url.searchParams.set('token', 'YOUR_TOKEN_HERE');
+                  alert(`Alternatively, you can add the token to the URL:\n${url.toString()}\n\nOr set REACT_APP_GITHUB_TOKEN as an environment variable.`);
+                }}
+                style={{
+                  padding: '10px 15px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Show URL Option
+              </button>
+            </div>
+          </form>
+
+          <p style={{ marginTop: '20px', fontSize: '0.85rem', color: '#666' }}>
+            <strong>Note:</strong> The token will be stored in your browser's session storage for this session only. 
+            It will not be saved permanently.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="admin-container">
@@ -56,7 +175,25 @@ const AdminView = () => {
       <div className="admin-container">
         <div className="error-message">
           <p>{error}</p>
-          <button onClick={loadData} className="retry-button">Retry</button>
+          <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+            <button onClick={loadData} className="retry-button">Retry</button>
+            <button 
+              onClick={() => {
+                sessionStorage.removeItem('github_token');
+                setShowTokenInput(true);
+              }}
+              style={{
+                padding: '10px 15px',
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              Enter New Token
+            </button>
+          </div>
         </div>
       </div>
     );

@@ -1,21 +1,41 @@
 const nodemailer = require('nodemailer');
 
 // Create transporter
-// For production, configure with your email service (Gmail, SendGrid, etc.)
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: process.env.SMTP_PORT || 587,
-  secure: false, // true for 465, false for other ports
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+// Supports multiple email services: Gmail, SendGrid, Mailgun, etc.
+let transporter;
 
-// If no SMTP credentials, use a mock transporter for development
-if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-  console.warn('⚠️  No SMTP credentials found. Email sending will be mocked.');
-  console.warn('   Set SMTP_USER and SMTP_PASS in .env file to enable real email sending.');
+// Check if using SendGrid (API key instead of SMTP)
+if (process.env.SENDGRID_API_KEY) {
+  // SendGrid uses SMTP with API key as password
+  transporter = nodemailer.createTransport({
+    host: 'smtp.sendgrid.net',
+    port: 587,
+    secure: false,
+    auth: {
+      user: 'apikey',
+      pass: process.env.SENDGRID_API_KEY,
+    },
+  });
+  console.log('✅ Using SendGrid for email sending (no app password needed!)');
+} else if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+  // Standard SMTP (Gmail, Outlook, etc.)
+  transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: process.env.SMTP_PORT || 587,
+    secure: false, // true for 465, false for other ports
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+  console.log('✅ Using SMTP for email sending');
+} else {
+  // No email credentials configured
+  console.warn('⚠️  No email credentials found. Email sending will be mocked.');
+  console.warn('   Options:');
+  console.warn('   1. Set SENDGRID_API_KEY in .env (easiest - no app password needed!)');
+  console.warn('     See: server/SETUP_SENDGRID.md');
+  console.warn('   2. Set SMTP_USER and SMTP_PASS in .env (requires app password for Gmail)');
 }
 
 const sendMagicLink = async (email, magicLink) => {
@@ -123,9 +143,9 @@ const sendMagicLink = async (email, magicLink) => {
     `
   };
 
-  // If no SMTP credentials, just log the email
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.log('\n📧 MOCK EMAIL (SMTP not configured):');
+  // If no email credentials, just log the email
+  if (!process.env.SENDGRID_API_KEY && (!process.env.SMTP_USER || !process.env.SMTP_PASS)) {
+    console.log('\n📧 MOCK EMAIL (email not configured):');
     console.log('To:', email);
     console.log('Subject:', mailOptions.subject);
     console.log('Magic Link:', magicLink);
@@ -146,10 +166,12 @@ const sendMagicLink = async (email, magicLink) => {
 const sendRSVPNotification = async (rsvpData) => {
   const adminUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/admin`;
   const adminEmail = process.env.ADMIN_EMAIL || 'r.smoker@gmail.com';
+  // Send to both primary admin email and additional recipient
+  const recipients = [adminEmail, 'jmperry21@gmail.com'];
 
   const mailOptions = {
     from: process.env.FROM_EMAIL || 'noreply@skyesparty.com',
-    to: adminEmail,
+    to: recipients,
     subject: `🎉 New RSVP for Skye's Party! ${rsvpData.going ? '✅ Going' : '❌ Not Going'}`,
     html: `
       <!DOCTYPE html>
@@ -276,10 +298,10 @@ const sendRSVPNotification = async (rsvpData) => {
     `
   };
 
-  // If no SMTP credentials, just log the email
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.log('\n📧 MOCK RSVP NOTIFICATION (SMTP not configured):');
-    console.log('To:', adminEmail);
+  // If no email credentials, just log the email
+  if (!process.env.SENDGRID_API_KEY && (!process.env.SMTP_USER || !process.env.SMTP_PASS)) {
+    console.log('\n📧 MOCK RSVP NOTIFICATION (email not configured):');
+    console.log('To:', recipients.join(', '));
     console.log('Subject:', mailOptions.subject);
     console.log('RSVP Details:', rsvpData);
     console.log('Admin URL:', adminUrl);

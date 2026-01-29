@@ -1,12 +1,17 @@
 // GitHub Gist service for storing RSVPs
 // This replaces the backend by using GitHub Gists API as a simple database
 
+import { GITHUB_TOKEN as CONFIG_TOKEN } from '../config';
+
 const GIST_FILENAME = 'rsvps.json';
 const GIST_DESCRIPTION = 'Skye\'s Party RSVPs';
 
-// Get GitHub token from environment variable or URL parameter
-// For GitHub Pages, you can set this as a GitHub secret and use it in the build
-// Or pass it as a URL parameter (less secure but works)
+// Get GitHub token from config file, environment variable, URL parameter, or sessionStorage
+// Priority order:
+// 1. URL parameter (for easy one-time access)
+// 2. SessionStorage (from admin view token input)
+// 3. Config file (hardcoded - safe since admin URL is secret)
+// 4. Environment variable (for production builds)
 const getGitHubToken = () => {
   // Check URL parameter first (for easy setup)
   const urlParams = new URLSearchParams(window.location.search);
@@ -15,7 +20,18 @@ const getGitHubToken = () => {
     return tokenFromUrl;
   }
   
-  // Check environment variable (set during build)
+  // Check sessionStorage (for admin view token input)
+  const tokenFromStorage = sessionStorage.getItem('github_token');
+  if (tokenFromStorage) {
+    return tokenFromStorage;
+  }
+  
+  // Check config file (hardcoded token - safe since admin URL is secret)
+  if (CONFIG_TOKEN && CONFIG_TOKEN !== 'YOUR_GITHUB_TOKEN_HERE') {
+    return CONFIG_TOKEN;
+  }
+  
+  // Fallback to environment variable (for production builds with GitHub Secrets)
   return process.env.REACT_APP_GITHUB_TOKEN || '';
 };
 

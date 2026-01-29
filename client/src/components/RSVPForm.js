@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import './RSVPForm.css';
-import { addRSVP } from '../services/githubGist';
+import { submitRSVP } from '../services/api';
 
 const RSVPForm = () => {
   const [formData, setFormData] = useState({
@@ -15,6 +15,7 @@ const RSVPForm = () => {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -85,8 +86,9 @@ const RSVPForm = () => {
         message: formData.message ? formData.message.trim() : null
       };
 
-      await addRSVP(rsvpData);
+      await submitRSVP(rsvpData);
       setMessage('Thank you! Your RSVP has been submitted successfully! 🎉');
+      setShowSuccessPopup(true);
       
       // Reset form
       setFormData({
@@ -135,15 +137,27 @@ const RSVPForm = () => {
           <p><a href="https://cob.org/services/safety/education-safety/rules-and-regulations" target="_blank" rel="noopener noreferrer">View full pool rules</a></p>
         </div>
 
-        {message && (
-          <div className="success-message">
-            <p>{message}</p>
-          </div>
-        )}
-
         {error && (
           <div className="error-message">
             <p>{error}</p>
+          </div>
+        )}
+
+        {showSuccessPopup && (
+          <div className="popup-overlay" onClick={() => setShowSuccessPopup(false)}>
+            <div className="popup-content" onClick={(e) => e.stopPropagation()}>
+              <button 
+                className="popup-close" 
+                onClick={() => setShowSuccessPopup(false)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+              <div className="popup-message">
+                <h2>🎉 Thank You! 🎉</h2>
+                <p>Your RSVP has been submitted successfully!</p>
+              </div>
+            </div>
           </div>
         )}
 
