@@ -16,9 +16,17 @@ export const sendRSVPNotification = async (rsvpData) => {
   // Check if EmailJS is configured
   if (!EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID || !EMAILJS_PUBLIC_KEY) {
     console.warn('⚠️ EmailJS not configured. Email notification skipped.');
+    console.warn('   Service ID:', EMAILJS_SERVICE_ID || 'MISSING');
+    console.warn('   Template ID:', EMAILJS_TEMPLATE_ID || 'MISSING');
+    console.warn('   Public Key:', EMAILJS_PUBLIC_KEY ? 'SET' : 'MISSING');
     console.warn('   Set REACT_APP_EMAILJS_SERVICE_ID, REACT_APP_EMAILJS_TEMPLATE_ID, and REACT_APP_EMAILJS_PUBLIC_KEY');
     return Promise.resolve(); // Don't fail the RSVP submission if email isn't configured
   }
+
+  console.log('📧 Attempting to send RSVP notification email...');
+  console.log('   Service ID:', EMAILJS_SERVICE_ID);
+  console.log('   Template ID:', EMAILJS_TEMPLATE_ID);
+  console.log('   To:', ADMIN_EMAIL);
 
   // Initialize EmailJS with public key
   emailjs.init(EMAILJS_PUBLIC_KEY);
@@ -46,15 +54,22 @@ export const sendRSVPNotification = async (rsvpData) => {
   };
 
   try {
+    console.log('📤 Sending email with template params:', templateParams);
     const response = await emailjs.send(
       EMAILJS_SERVICE_ID,
       EMAILJS_TEMPLATE_ID,
       templateParams
     );
-    console.log('✅ RSVP notification email sent successfully:', response.text);
+    console.log('✅ RSVP notification email sent successfully!');
+    console.log('   Response:', response);
+    console.log('   Status:', response.status);
+    console.log('   Text:', response.text);
     return response;
   } catch (error) {
-    console.error('❌ Error sending RSVP notification email:', error);
+    console.error('❌ Error sending RSVP notification email:');
+    console.error('   Error object:', error);
+    console.error('   Error message:', error.text || error.message);
+    console.error('   Status:', error.status);
     // Don't throw - we don't want RSVP submission to fail if email fails
     return null;
   }
