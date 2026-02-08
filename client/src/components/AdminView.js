@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import './AdminView.css';
-import { getRSVPs, getStats, clearAllRSVPs } from '../services/githubGist';
+import { getRSVPs, getDeletedRSVPs, getStats, clearAllRSVPs, deleteRSVP, undeleteRSVP } from '../services/githubGist';
 
 const AdminView = () => {
   const [rsvps, setRsvps] = useState([]);
+  const [deletedRsvps, setDeletedRsvps] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [tokenInput, setTokenInput] = useState('');
   const [showTokenInput, setShowTokenInput] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
 
   useEffect(() => {
     // Check if token is missing
@@ -40,12 +42,14 @@ const AdminView = () => {
 
   const loadData = async () => {
     try {
-      const [rsvpsData, statsData] = await Promise.all([
+      const [rsvpsData, deletedData, statsData] = await Promise.all([
         getRSVPs(),
+        getDeletedRSVPs(),
         getStats()
       ]);
 
       setRsvps(rsvpsData || []);
+      setDeletedRsvps(deletedData || []);
       setStats(statsData);
       setError(null);
     } catch (err) {
@@ -57,6 +61,39 @@ const AdminView = () => {
         setShowTokenInput(true);
       }
       console.error('Error loading data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteRSVP = async (rsvpId) => {
+    const confirmed = window.confirm('Are you sure you want to delete this RSVP? It can be restored later.');
+    if (!confirmed) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+      await deleteRSVP(rsvpId);
+      await loadData();
+    } catch (err) {
+      console.error('Delete RSVP error:', err);
+      setError(err.message || 'Failed to delete RSVP');
+      alert(`Error: ${err.message || 'Failed to delete RSVP'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUndeleteRSVP = async (rsvpId) => {
+    try {
+      setLoading(true);
+      setError(null);
+      await undeleteRSVP(rsvpId);
+      await loadData();
+    } catch (err) {
+      console.error('Undelete RSVP error:', err);
+      setError(err.message || 'Failed to restore RSVP');
+      alert(`Error: ${err.message || 'Failed to restore RSVP'}`);
     } finally {
       setLoading(false);
     }
@@ -284,52 +321,128 @@ const AdminView = () => {
       </div>
 
       <div className="rsvps-section">
-        <h2>All RSVPs ({rsvps.length})</h2>
+        <h2>RSVP Management</h2>
         
-        {rsvps.length === 0 ? (
+        {rsvps.length === 0 && deletedRsvps.length === 0 ? (
           <div className="no-rsvps">
             <p>No RSVPs yet. Share your RSVP link to start receiving responses!</p>
           </div>
         ) : (
           <>
             <div className="rsvps-tabs">
-              <div className="tab active">
-                All ({rsvps.length})
+              <div 
+                className={`tab ${!showDeleted ? 'active' : ''}`}
+                onClick={() => setShowDeleted(false)}
+              >
+                Active ({rsvps.length})
+              </div>
+              <div 
+                className={`tab ${showDeleted ? 'active' : ''}`}
+                onClick={() => setShowDeleted(true)}
+              >
+                Deleted ({deletedRsvps.length})
               </div>
             </div>
 
-            <div className="table-container">
-              <table className="rsvps-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Status</th>
-                    <th>Adults</th>
-                    <th>Kids</th>
-                    <th>Total People</th>
-                    <th>Submitted</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rsvps.map((rsvp) => (
-                    <tr key={rsvp.id} className={rsvp.going ? 'going-row' : 'not-going-row'}>
-                      <td>{rsvp.name || <em>No name</em>}</td>
-                      <td>{rsvp.email || <em>No email</em>}</td>
-                      <td>
-                        <span className={`status-badge ${rsvp.going ? 'going' : 'not-going'}`}>
-                          {rsvp.going ? '✅ Going' : '❌ Not Going'}
-                        </span>
-                      </td>
-                      <td>{rsvp.num_adults || 0}</td>
-                      <td>{rsvp.num_kids || 0}</td>
-                      <td><strong>{rsvp.num_adults + rsvp.num_kids}</strong></td>
-                      <td>{formatDate(rsvp.submitted_at)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {!showDeleted ? (
+              <div className="table-container">
+                {rsvps.length === 0 ? (
+                  <div className="no-rsvps">
+                    <p>No active RSVPs. Check the Deleted tab to see removed records.</p>
+                  </div>
+                ) : (
+                  <table className="rsvps-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Status</th>
+                        <th>Adults</th>
+                        <th>Kids</th>
+                        <th>Total People</th>
+                        <th>Submitted</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rsvps.map((rsvp) => (
+                        <tr key={rsvp.id} className={rsvp.going ? 'going-row' : 'not-going-row'}>
+                          <td>{rsvp.name || <em>No name</em>}</td>
+                          <td>{rsvp.email || <em>No email</em>}</td>
+                          <td>
+                            <span className={`status-badge ${rsvp.going ? 'going' : 'not-going'}`}>
+                              {rsvp.going ? '✅ Going' : '❌ Not Going'}
+                            </span>
+                          </td>
+                          <td>{rsvp.num_adults || 0}</td>
+                          <td>{rsvp.num_kids || 0}</td>
+                          <td><strong>{rsvp.num_adults + rsvp.num_kids}</strong></td>
+                          <td>{formatDate(rsvp.submitted_at)}</td>
+                          <td>
+                            <button
+                              onClick={() => handleDeleteRSVP(rsvp.id)}
+                              className="delete-button"
+                              title="Delete this RSVP"
+                            >
+                              🗑️ Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            ) : (
+              <div className="table-container">
+                {deletedRsvps.length === 0 ? (
+                  <div className="no-rsvps">
+                    <p>No deleted RSVPs.</p>
+                  </div>
+                ) : (
+                  <table className="rsvps-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Status</th>
+                        <th>Adults</th>
+                        <th>Kids</th>
+                        <th>Total People</th>
+                        <th>Deleted</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {deletedRsvps.map((rsvp) => (
+                        <tr key={rsvp.id} className="deleted-row">
+                          <td>{rsvp.name || <em>No name</em>}</td>
+                          <td>{rsvp.email || <em>No email</em>}</td>
+                          <td>
+                            <span className={`status-badge ${rsvp.going ? 'going' : 'not-going'}`}>
+                              {rsvp.going ? '✅ Going' : '❌ Not Going'}
+                            </span>
+                          </td>
+                          <td>{rsvp.num_adults || 0}</td>
+                          <td>{rsvp.num_kids || 0}</td>
+                          <td><strong>{rsvp.num_adults + rsvp.num_kids}</strong></td>
+                          <td>{formatDate(rsvp.deleted_at)}</td>
+                          <td>
+                            <button
+                              onClick={() => handleUndeleteRSVP(rsvp.id)}
+                              className="undelete-button"
+                              title="Restore this RSVP"
+                            >
+                              ♻️ Restore
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
 
             <div className="summary-section">
               <h3>Summary for Planning</h3>

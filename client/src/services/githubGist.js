@@ -99,7 +99,7 @@ export const createGist = async () => {
   }
 };
 
-// Get all RSVPs from the Gist
+// Get all RSVPs from the Gist (excluding deleted ones)
 export const getRSVPs = async () => {
   const token = getGitHubToken();
   const gistId = getGistId();
@@ -140,9 +140,57 @@ export const getRSVPs = async () => {
     }
 
     const data = JSON.parse(file.content);
-    return data.rsvps || [];
+    const allRsvps = data.rsvps || [];
+    // Filter out deleted records
+    return allRsvps.filter(rsvp => !rsvp.deleted_at);
   } catch (error) {
     console.error('Error fetching RSVPs:', error);
+    throw error;
+  }
+};
+
+// Get only deleted RSVPs
+export const getDeletedRSVPs = async () => {
+  const token = getGitHubToken();
+  const gistId = getGistId();
+
+  if (!token) {
+    throw new Error('GitHub token not found. Please set REACT_APP_GITHUB_TOKEN or pass ?token=YOUR_TOKEN in the URL.');
+  }
+
+  if (!gistId) {
+    return [];
+  }
+
+  try {
+    const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+      headers: {
+        'Authorization': getAuthHeader(token),
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return [];
+      }
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to fetch Gist');
+    }
+
+    const gist = await response.json();
+    const file = gist.files[GIST_FILENAME];
+    
+    if (!file) {
+      return [];
+    }
+
+    const data = JSON.parse(file.content);
+    const allRsvps = data.rsvps || [];
+    // Return only deleted records
+    return allRsvps.filter(rsvp => rsvp.deleted_at);
+  } catch (error) {
+    console.error('Error fetching deleted RSVPs:', error);
     throw error;
   }
 };
@@ -318,9 +366,175 @@ export const clearAllRSVPs = async () => {
   }
 };
 
+// Delete an RSVP (soft delete - marks as deleted)
+export const deleteRSVP = async (rsvpId) => {
+  const token = getGitHubToken();
+  const gistId = getGistId();
+
+  if (!token) {
+    throw new Error('GitHub token not found. Please set REACT_APP_GITHUB_TOKEN or pass ?token=YOUR_TOKEN in the URL.');
+  }
+
+  if (!gistId) {
+    throw new Error('Gist ID not found.');
+  }
+
+  try {
+    // Get current Gist
+    const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+      headers: {
+        'Authorization': getAuthHeader(token),
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to fetch Gist');
+    }
+
+    const gist = await response.json();
+    const file = gist.files[GIST_FILENAME];
+    
+    if (!file) {
+      throw new Error('RSVPs file not found in Gist');
+    }
+
+    const data = JSON.parse(file.content);
+    const rsvps = data.rsvps || [];
+    
+    // Find and mark the RSVP as deleted
+    const updatedRsvps = rsvps.map(rsvp => {
+      if (rsvp.id === rsvpId || rsvp.id === String(rsvpId)) {
+        return {
+          ...rsvp,
+          deleted_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+      }
+      return rsvp;
+    });
+
+    // Update the Gist
+    const updateResponse = await fetch(`https://api.github.com/gists/${gistId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': getAuthHeader(token),
+        'Content-Type': 'application/json',
+        'Accept': 'application/vnd.github.v3+json'
+      },
+      body: JSON.stringify({
+        description: GIST_DESCRIPTION,
+        files: {
+          [GIST_FILENAME]: {
+            content: JSON.stringify({
+              ...data,
+              rsvps: updatedRsvps,
+              updated_at: new Date().toISOString()
+            }, null, 2)
+          }
+        }
+      })
+    });
+
+    if (!updateResponse.ok) {
+      const error = await updateResponse.json();
+      throw new Error(error.message || 'Failed to delete RSVP');
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error deleting RSVP:', error);
+    throw error;
+  }
+};
+
+// Undelete an RSVP
+export const undeleteRSVP = async (rsvpId) => {
+  const token = getGitHubToken();
+  const gistId = getGistId();
+
+  if (!token) {
+    throw new Error('GitHub token not found. Please set REACT_APP_GITHUB_TOKEN or pass ?token=YOUR_TOKEN in the URL.');
+  }
+
+  if (!gistId) {
+    throw new Error('Gist ID not found.');
+  }
+
+  try {
+    // Get current Gist
+    const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+      headers: {
+        'Authorization': getAuthHeader(token),
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to fetch Gist');
+    }
+
+    const gist = await response.json();
+    const file = gist.files[GIST_FILENAME];
+    
+    if (!file) {
+      throw new Error('RSVPs file not found in Gist');
+    }
+
+    const data = JSON.parse(file.content);
+    const rsvps = data.rsvps || [];
+    
+    // Find and remove the deleted_at field
+    const updatedRsvps = rsvps.map(rsvp => {
+      if (rsvp.id === rsvpId || rsvp.id === String(rsvpId)) {
+        const { deleted_at, ...rest } = rsvp;
+        return {
+          ...rest,
+          updated_at: new Date().toISOString()
+        };
+      }
+      return rsvp;
+    });
+
+    // Update the Gist
+    const updateResponse = await fetch(`https://api.github.com/gists/${gistId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': getAuthHeader(token),
+        'Content-Type': 'application/json',
+        'Accept': 'application/vnd.github.v3+json'
+      },
+      body: JSON.stringify({
+        description: GIST_DESCRIPTION,
+        files: {
+          [GIST_FILENAME]: {
+            content: JSON.stringify({
+              ...data,
+              rsvps: updatedRsvps,
+              updated_at: new Date().toISOString()
+            }, null, 2)
+          }
+        }
+      })
+    });
+
+    if (!updateResponse.ok) {
+      const error = await updateResponse.json();
+      throw new Error(error.message || 'Failed to undelete RSVP');
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error undeleting RSVP:', error);
+    throw error;
+  }
+};
+
 // Get statistics
 export const getStats = async () => {
-  const rsvps = await getRSVPs();
+  const rsvps = await getRSVPs(); // Already filters out deleted records
   
   const stats = {
     total: rsvps.length,

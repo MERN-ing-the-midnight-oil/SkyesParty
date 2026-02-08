@@ -169,6 +169,11 @@
   background: #fff5f5;
 }
 
+.rsvps-table tbody tr.deleted-row {
+  background: #f8f9fa;
+  opacity: 0.7;
+}
+
 .status-badge {
   display: inline-block;
   padding: 5px 12px;
@@ -261,6 +266,31 @@
   margin-bottom: 15px;
 }
 
+.delete-button,
+.undelete-button {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.delete-button:hover {
+  background: #c82333;
+}
+
+.undelete-button {
+  background: #28a745;
+}
+
+.undelete-button:hover {
+  background: #218838;
+}
+
 @media (max-width: 768px) {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -283,5 +313,6 @@
     font-size: 0.85rem;
   }
 }
+
 
 
