@@ -64,7 +64,11 @@ const getOrResolveGistId = async () => {
     if (!response.ok) return '';
 
     const gists = await response.json();
-    const match = gists.find(g => g.description && g.description.trim() === GIST_DESCRIPTION);
+    const matches = gists.filter(g => g.description && g.description.trim() === GIST_DESCRIPTION);
+    // When multiple Gists exist (e.g. after recovery), use the most recently updated = the one with merged RSVPs
+    const match = matches.length
+      ? matches.sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0))[0]
+      : null;
     if (match) {
       setGistId(match.id); // cache for next time
       return match.id;
