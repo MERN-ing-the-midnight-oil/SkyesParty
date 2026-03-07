@@ -97,7 +97,7 @@ const sendMagicLink = async (email, magicLink) => {
               <p>You're invited to Skye's 4th birthday party! We'd love to know if you can make it.</p>
               
               <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin: 10px 0;"><strong>📅 Date:</strong> Saturday, March 22nd, 2026</p>
+                <p style="margin: 10px 0;"><strong>📅 Date:</strong> Sunday, March 22nd, 2026</p>
                 <p style="margin: 10px 0;"><strong>⏰ Time:</strong> 10:30 AM - 12:30 PM</p>
                 <p style="margin: 10px 0;"><strong>📍 Location:</strong> Arne Hanna Aquatic Center, Bellingham WA</p>
               </div>
@@ -129,7 +129,7 @@ const sendMagicLink = async (email, magicLink) => {
       
       You're invited to Skye's 4th birthday party! We'd love to know if you can make it.
       
-      Date: Saturday, March 22nd, 2026
+      Date: Sunday, March 22nd, 2026
       Time: 10:30 AM - 12:30 PM
       Location: Arne Hanna Aquatic Center, Bellingham WA
       

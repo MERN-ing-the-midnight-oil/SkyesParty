@@ -113,7 +113,7 @@ const RSVPForm = () => {
         <div className="rsvp-header">
           <h1>🎉 Skye's 4th Birthday Party 🎉</h1>
           <div className="party-details">
-            <p><strong>📅 Date:</strong> Saturday, March 22nd, 2026</p>
+            <p><strong>📅 Date:</strong> Sunday, March 22nd, 2026</p>
             <p><strong>⏰ Time:</strong> 10:30 AM - 12:30 PM</p>
             <p><strong>📍 Location:</strong> Arne Hanna Aquatic Center, Bellingham WA</p>
             <p className="calendar-link-container">

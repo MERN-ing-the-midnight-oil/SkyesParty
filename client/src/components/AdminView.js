@@ -243,7 +243,7 @@ const AdminView = () => {
       <div className="admin-header">
         <h1>🎉 Skye's 4th Birthday Party - Admin View 🎉</h1>
         <p className="party-info">
-          <strong>Date:</strong> Saturday, March 22nd, 2026 | 
+          <strong>Date:</strong> Sunday, March 22nd, 2026 | 
           <strong> Time:</strong> 10:30 AM - 12:30 PM | 
           <strong> Location:</strong> Arne Hanna Aquatic Center, Bellingham WA
         </p>
