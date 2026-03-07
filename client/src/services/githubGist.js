@@ -6,33 +6,27 @@ import { GITHUB_TOKEN as CONFIG_TOKEN } from '../config';
 const GIST_FILENAME = 'rsvps.json';
 const GIST_DESCRIPTION = 'Skye\'s Party RSVPs';
 
-// Get GitHub token from config file, environment variable, URL parameter, or sessionStorage
-// Priority order:
-// 1. URL parameter (for easy one-time access)
-// 2. SessionStorage (from admin view token input)
-// 3. Config file (hardcoded - safe since admin URL is secret)
-// 4. Environment variable (for production builds)
+// Get GitHub token from URL (search or hash), sessionStorage, config, or env
+// Priority: URL (search then hash) -> sessionStorage -> config -> env
 const getGitHubToken = () => {
-  // Check URL parameter first (for easy setup - e.g. ?/admin&token=ghp_xxx on GitHub Pages)
-  const urlParams = new URLSearchParams(window.location.search);
-  const tokenFromUrl = urlParams.get('token');
+  // 1. Query string (e.g. ?/admin&token=ghp_xxx)
+  const searchParams = new URLSearchParams(window.location.search);
+  let tokenFromUrl = searchParams.get('token');
+  // 2. Hash (e.g. #/admin?token=ghp_xxx - some setups put route in hash)
+  if (!tokenFromUrl && window.location.hash) {
+    const hashPart = window.location.hash.indexOf('?') >= 0
+      ? window.location.hash.slice(window.location.hash.indexOf('?'))
+      : '';
+    if (hashPart) tokenFromUrl = new URLSearchParams(hashPart).get('token');
+  }
   if (tokenFromUrl) {
-    sessionStorage.setItem('github_token', tokenFromUrl); // persist so reload works without token in URL
+    sessionStorage.setItem('github_token', tokenFromUrl);
     return tokenFromUrl;
   }
 
-  // Check sessionStorage (from URL param or admin token input)
   const tokenFromStorage = sessionStorage.getItem('github_token');
-  if (tokenFromStorage) {
-    return tokenFromStorage;
-  }
-  
-  // Check config file (hardcoded token - safe since admin URL is secret)
-  if (CONFIG_TOKEN && CONFIG_TOKEN !== 'YOUR_GITHUB_TOKEN_HERE') {
-    return CONFIG_TOKEN;
-  }
-  
-  // Fallback to environment variable (for production builds with GitHub Secrets)
+  if (tokenFromStorage) return tokenFromStorage;
+  if (CONFIG_TOKEN && CONFIG_TOKEN !== 'YOUR_GITHUB_TOKEN_HERE') return CONFIG_TOKEN;
   return process.env.REACT_APP_GITHUB_TOKEN || '';
 };
 
@@ -45,10 +39,15 @@ const setGistId = (id) => {
   localStorage.setItem('rsvp_gist_id', id);
 };
 
-// Resolve Gist ID so all devices use the same Gist (not just localStorage).
-// 1. Use localStorage if set. 2. Otherwise list user's Gists and find one with our description.
-// This fixes: admin on phone saw 0 RSVPs because phone had no rsvp_gist_id in localStorage.
+// Canonical Gist ID from build (set REACT_APP_GIST_ID in GitHub Actions secrets so production always uses the merged Gist)
+const getCanonicalGistId = () => (process.env.REACT_APP_GIST_ID || '').trim();
+
+// Resolve Gist ID so all devices use the same Gist.
+// 1. Canonical from build (REACT_APP_GIST_ID). 2. localStorage. 3. List Gists and pick by description (most recently updated).
 const getOrResolveGistId = async () => {
+  const canonical = getCanonicalGistId();
+  if (canonical) return canonical;
+
   const fromStorage = getGistId();
   if (fromStorage) return fromStorage;
 
@@ -66,12 +65,11 @@ const getOrResolveGistId = async () => {
 
     const gists = await response.json();
     const matches = gists.filter(g => g.description && g.description.trim() === GIST_DESCRIPTION);
-    // When multiple Gists exist (e.g. after recovery), use the most recently updated = the one with merged RSVPs
     const match = matches.length
       ? matches.sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0))[0]
       : null;
     if (match) {
-      setGistId(match.id); // cache for next time
+      setGistId(match.id);
       return match.id;
     }
   } catch (e) {
