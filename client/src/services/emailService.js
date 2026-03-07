@@ -26,10 +26,16 @@ export const sendRSVPNotification = async (rsvpData) => {
   console.log('📧 Attempting to send RSVP notification email...');
   console.log('   Service ID:', EMAILJS_SERVICE_ID);
   console.log('   Template ID:', EMAILJS_TEMPLATE_ID);
+  console.log('   Public Key:', EMAILJS_PUBLIC_KEY);
   console.log('   To:', ADMIN_EMAIL);
 
-  // Initialize EmailJS with public key
-  emailjs.init(EMAILJS_PUBLIC_KEY);
+  // Initialize EmailJS with public key (only once, but we'll do it each time to be safe)
+  // In newer versions, this might not be needed, but it doesn't hurt
+  try {
+    emailjs.init(EMAILJS_PUBLIC_KEY);
+  } catch (initError) {
+    console.warn('EmailJS init warning (may be normal):', initError);
+  }
 
   // Prepare email template parameters
   const templateParams = {
@@ -55,10 +61,12 @@ export const sendRSVPNotification = async (rsvpData) => {
 
   try {
     console.log('📤 Sending email with template params:', templateParams);
+    // Try sending with public key as 4th parameter (newer API)
     const response = await emailjs.send(
       EMAILJS_SERVICE_ID,
       EMAILJS_TEMPLATE_ID,
-      templateParams
+      templateParams,
+      EMAILJS_PUBLIC_KEY  // Pass public key as 4th parameter
     );
     console.log('✅ RSVP notification email sent successfully!');
     console.log('   Response:', response);

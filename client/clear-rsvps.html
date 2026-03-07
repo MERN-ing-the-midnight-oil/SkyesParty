@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear All RSVPs</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        .info {
+            background-color: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #dc3545;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            color: #721c24;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #28a745;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            color: #155724;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            width: 100%;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #c82333;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗑️ Clear All RSVPs</h1>
+        <div class="info">
+            <strong>⚠️ Warning:</strong> This will permanently delete all RSVPs from your GitHub Gist. This action cannot be undone.
+        </div>
+        
+        <div>
+            <label for="token-input">
+                <strong>GitHub Token:</strong>
+            </label>
+            <input 
+                type="password" 
+                id="token-input" 
+                placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                value=""
+            />
+        </div>
+        
+        <div>
+            <label for="gist-id-input">
+                <strong>Gist ID:</strong> (from localStorage or browser console)
+            </label>
+            <input 
+                type="text" 
+                id="gist-id-input" 
+                placeholder="Enter Gist ID or leave empty to get from localStorage"
+                value=""
+            />
+        </div>
+        
+        <button id="clear-btn" onclick="clearRSVPs()">Clear All RSVPs</button>
+        
+        <div id="message"></div>
+    </div>
+
+    <script>
+        // Try to get Gist ID from localStorage if available
+        window.addEventListener('DOMContentLoaded', () => {
+            const gistId = localStorage.getItem('rsvp_gist_id');
+            if (gistId) {
+                document.getElementById('gist-id-input').value = gistId;
+            }
+        });
+
+        async function clearRSVPs() {
+            const token = document.getElementById('token-input').value.trim();
+            let gistId = document.getElementById('gist-id-input').value.trim();
+            const messageDiv = document.getElementById('message');
+            const clearBtn = document.getElementById('clear-btn');
+            
+            // Clear previous messages
+            messageDiv.innerHTML = '';
+            messageDiv.className = '';
+            
+            if (!token) {
+                messageDiv.className = 'error';
+                messageDiv.innerHTML = '❌ Please enter your GitHub token.';
+                return;
+            }
+            
+            // If no Gist ID provided, try to get from localStorage
+            if (!gistId) {
+                gistId = localStorage.getItem('rsvp_gist_id');
+                if (gistId) {
+                    document.getElementById('gist-id-input').value = gistId;
+                } else {
+                    messageDiv.className = 'error';
+                    messageDiv.innerHTML = '❌ Please enter the Gist ID. You can find it in your browser\'s localStorage or by checking the network tab when loading RSVPs.';
+                    return;
+                }
+            }
+            
+            // Confirm deletion
+            const confirmed = confirm(
+                `Are you sure you want to delete ALL RSVPs from Gist ${gistId}?\n\nThis action cannot be undone.`
+            );
+            
+            if (!confirmed) {
+                return;
+            }
+            
+            clearBtn.disabled = true;
+            clearBtn.textContent = 'Clearing...';
+            messageDiv.className = 'loading';
+            messageDiv.innerHTML = '⏳ Clearing RSVPs...';
+            
+            try {
+                // First, get the current Gist to preserve created_at
+                const getResponse = await fetch(`https://api.github.com/gists/${gistId}`, {
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                });
+                
+                if (!getResponse.ok) {
+                    const error = await getResponse.json();
+                    throw new Error(error.message || 'Failed to fetch Gist');
+                }
+                
+                const gist = await getResponse.json();
+                const file = gist.files['rsvps.json'];
+                
+                let existingData = {};
+                if (file) {
+                    try {
+                        existingData = JSON.parse(file.content);
+                    } catch (e) {
+                        existingData = { rsvps: [] };
+                    }
+                }
+                
+                // Update the Gist with empty RSVPs array
+                const updateResponse = await fetch(`https://api.github.com/gists/${gistId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/vnd.github.v3+json'
+                    },
+                    body: JSON.stringify({
+                        description: 'Skye\'s Party RSVPs',
+                        files: {
+                            'rsvps.json': {
+                                content: JSON.stringify({
+                                    rsvps: [],
+                                    created_at: existingData.created_at || new Date().toISOString(),
+                                    updated_at: new Date().toISOString(),
+                                    cleared_at: new Date().toISOString()
+                                }, null, 2)
+                            }
+                        }
+                    })
+                });
+                
+                if (!updateResponse.ok) {
+                    const error = await updateResponse.json();
+                    throw new Error(error.message || 'Failed to clear RSVPs');
+                }
+                
+                messageDiv.className = 'success';
+                messageDiv.innerHTML = '✅ All RSVPs have been successfully deleted!';
+                clearBtn.textContent = 'Clear All RSVPs';
+                
+            } catch (error) {
+                messageDiv.className = 'error';
+                messageDiv.innerHTML = `❌ Error: ${error.message}`;
+                clearBtn.textContent = 'Clear All RSVPs';
+            } finally {
+                clearBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
+

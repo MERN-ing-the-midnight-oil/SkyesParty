@@ -35,13 +35,44 @@ const getGitHubToken = () => {
   return process.env.REACT_APP_GITHUB_TOKEN || '';
 };
 
-// Get or create the Gist ID from localStorage (or you can hardcode it after first creation)
+// Get Gist ID from localStorage (device-specific; may be empty on new devices)
 const getGistId = () => {
   return localStorage.getItem('rsvp_gist_id') || '';
 };
 
 const setGistId = (id) => {
   localStorage.setItem('rsvp_gist_id', id);
+};
+
+// Resolve Gist ID so all devices use the same Gist (not just localStorage).
+// 1. Use localStorage if set. 2. Otherwise list user's Gists and find one with our description.
+// This fixes: admin on phone saw 0 RSVPs because phone had no rsvp_gist_id in localStorage.
+const getOrResolveGistId = async () => {
+  const fromStorage = getGistId();
+  if (fromStorage) return fromStorage;
+
+  const token = getGitHubToken();
+  if (!token) return '';
+
+  try {
+    const response = await fetch('https://api.github.com/gists', {
+      headers: {
+        'Authorization': getAuthHeader(token),
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+    if (!response.ok) return '';
+
+    const gists = await response.json();
+    const match = gists.find(g => g.description && g.description.trim() === GIST_DESCRIPTION);
+    if (match) {
+      setGistId(match.id); // cache for next time
+      return match.id;
+    }
+  } catch (e) {
+    console.error('Error resolving Gist by description:', e);
+  }
+  return '';
 };
 
 // Get authorization header with correct format for GitHub API
@@ -102,14 +133,14 @@ export const createGist = async () => {
 // Get all RSVPs from the Gist (excluding deleted ones)
 export const getRSVPs = async () => {
   const token = getGitHubToken();
-  const gistId = getGistId();
+  const gistId = await getOrResolveGistId();
 
   if (!token) {
     throw new Error('GitHub token not found. Please set REACT_APP_GITHUB_TOKEN or pass ?token=YOUR_TOKEN in the URL.');
   }
 
   if (!gistId) {
-    // Try to create a new Gist
+    // No Gist found by description; create a new one (e.g. first-time setup)
     await createGist();
     return [];
   }
@@ -152,7 +183,7 @@ export const getRSVPs = async () => {
 // Get only deleted RSVPs
 export const getDeletedRSVPs = async () => {
   const token = getGitHubToken();
-  const gistId = getGistId();
+  const gistId = await getOrResolveGistId();
 
   if (!token) {
     throw new Error('GitHub token not found. Please set REACT_APP_GITHUB_TOKEN or pass ?token=YOUR_TOKEN in the URL.');
@@ -198,7 +229,7 @@ export const getDeletedRSVPs = async () => {
 // Add a new RSVP to the Gist
 export const addRSVP = async (rsvpData) => {
   const token = getGitHubToken();
-  const gistId = getGistId();
+  let currentGistId = await getOrResolveGistId();
 
   if (!token) {
     throw new Error('GitHub token not found. Please set REACT_APP_GITHUB_TOKEN or pass ?token=YOUR_TOKEN in the URL.');
@@ -206,10 +237,9 @@ export const addRSVP = async (rsvpData) => {
 
   // Get existing RSVPs
   let existingRSVPs = [];
-  let currentGistId = gistId;
 
   if (!currentGistId) {
-    // Create a new Gist if it doesn't exist
+    // No Gist found by description; create a new one (first-time setup)
     currentGistId = await createGist();
   } else {
     try {
@@ -269,7 +299,7 @@ export const addRSVP = async (rsvpData) => {
 // Clear all RSVPs from the Gist
 export const clearAllRSVPs = async () => {
   const token = getGitHubToken();
-  const gistId = getGistId();
+  const gistId = await getOrResolveGistId();
 
   if (!token) {
     throw new Error('GitHub token not found. Please set REACT_APP_GITHUB_TOKEN or pass ?token=YOUR_TOKEN in the URL.');
@@ -369,7 +399,7 @@ export const clearAllRSVPs = async () => {
 // Delete an RSVP (soft delete - marks as deleted)
 export const deleteRSVP = async (rsvpId) => {
   const token = getGitHubToken();
-  const gistId = getGistId();
+  const gistId = await getOrResolveGistId();
 
   if (!token) {
     throw new Error('GitHub token not found. Please set REACT_APP_GITHUB_TOKEN or pass ?token=YOUR_TOKEN in the URL.');
@@ -452,7 +482,7 @@ export const deleteRSVP = async (rsvpId) => {
 // Undelete an RSVP
 export const undeleteRSVP = async (rsvpId) => {
   const token = getGitHubToken();
-  const gistId = getGistId();
+  const gistId = await getOrResolveGistId();
 
   if (!token) {
     throw new Error('GitHub token not found. Please set REACT_APP_GITHUB_TOKEN or pass ?token=YOUR_TOKEN in the URL.');

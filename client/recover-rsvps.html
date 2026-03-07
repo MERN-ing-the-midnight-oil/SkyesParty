@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recover scattered RSVPs</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 700px; margin: 40px auto; padding: 20px; background: #f5f5f5; }
+        .container { background: white; padding: 24px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+        h1 { color: #333; margin-top: 0; }
+        .info { background: #e7f3ff; border: 1px solid #0d6efd; padding: 12px; border-radius: 6px; margin: 16px 0; font-size: 14px; }
+        .error { background: #f8d7da; border: 1px solid #dc3545; padding: 12px; border-radius: 6px; margin: 16px 0; color: #721c24; }
+        .success { background: #d4edda; border: 1px solid #28a745; padding: 12px; border-radius: 6px; margin: 16px 0; color: #155724; }
+        input[type="password"], input[type="text"] { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        button { background: #0d6efd; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        button:hover { background: #0b5ed7; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        button.danger { background: #dc3545; }
+        button.danger:hover { background: #bb2d3b; }
+        #results { margin-top: 20px; }
+        .gist-block { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 12px; margin: 10px 0; }
+        .gist-block h3 { margin: 0 0 8px 0; font-size: 14px; color: #495057; }
+        .rsvp-list { list-style: none; padding: 0; margin: 8px 0 0 0; }
+        .rsvp-list li { padding: 6px 0; border-bottom: 1px solid #eee; font-size: 13px; }
+        .rsvp-list li:last-child { border-bottom: none; }
+        .merge-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid #dee2e6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Recover scattered RSVPs</h1>
+        <div class="info">
+            RSVPs were saved, but each device created its own Gist. This page finds all Gists named &quot;Skye's Party RSVPs&quot;, loads their RSVPs, and lets you merge them into one Gist so the dashboard shows everyone.
+        </div>
+        <div>
+            <label for="token-input"><strong>GitHub token</strong> (needs <code>gist</code> scope):</label>
+            <input type="password" id="token-input" placeholder="ghp_..." />
+        </div>
+        <button id="fetch-btn" onclick="fetchAllGists()">Find all RSVP Gists</button>
+        <div id="message"></div>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const GIST_DESCRIPTION = "Skye's Party RSVPs";
+        const GIST_FILENAME = 'rsvps.json';
+
+        function authHeader(token) {
+            if (token.startsWith('ghp_') || token.startsWith('gho_') || token.startsWith('ghu_'))
+                return 'Bearer ' + token;
+            return 'token ' + token;
+        }
+
+        function showMessage(text, type) {
+            const el = document.getElementById('message');
+            el.textContent = text;
+            el.className = type || '';
+        }
+
+        async function fetchAllGists() {
+            const token = document.getElementById('token-input').value.trim();
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+            const fetchBtn = document.getElementById('fetch-btn');
+
+            if (!token) {
+                showMessage('Please enter your GitHub token.', 'error');
+                return;
+            }
+
+            fetchBtn.disabled = true;
+            showMessage('Loading your Gists...', 'info');
+
+            try {
+                const res = await fetch('https://api.github.com/gists', {
+                    headers: { 'Authorization': authHeader(token), 'Accept': 'application/vnd.github.v3+json' }
+                });
+                if (!res.ok) throw new Error('GitHub API error: ' + res.status);
+                const gists = await res.json();
+                const partyGists = gists.filter(g => g.description && g.description.trim() === GIST_DESCRIPTION);
+
+                if (partyGists.length === 0) {
+                    showMessage('No Gists found with description "' + GIST_DESCRIPTION + '".', 'info');
+                    fetchBtn.disabled = false;
+                    return;
+                }
+
+                const allGistData = [];
+                let totalRsvps = 0;
+                const seenIds = new Set();
+                const combinedRsvps = [];
+
+                for (const gist of partyGists) {
+                    const fullRes = await fetch(gist.url, {
+                        headers: { 'Authorization': authHeader(token), 'Accept': 'application/vnd.github.v3+json' }
+                    });
+                    if (!fullRes.ok) continue;
+                    const full = await fullRes.json();
+                    const file = full.files[GIST_FILENAME];
+                    let rsvps = [];
+                    if (file && file.content) {
+                        try {
+                            const data = JSON.parse(file.content);
+                            rsvps = (data.rsvps || []).filter(r => !r.deleted_at);
+                        } catch (e) { rsvps = []; }
+                    }
+                    allGistData.push({ id: gist.id, url: gist.html_url, rsvps, created: gist.created_at });
+                    totalRsvps += rsvps.length;
+                    rsvps.forEach(r => {
+                        const id = r.id || (r.name + r.submitted_at);
+                        if (!seenIds.has(id)) { seenIds.add(id); combinedRsvps.push(r); }
+                    });
+                }
+
+                let html = '<p><strong>' + partyGists.length + ' Gist(s)</strong> with "' + GIST_DESCRIPTION + '". ';
+                html += '<strong>' + totalRsvps + ' total RSVP(s)</strong>; <strong>' + combinedRsvps.length + ' unique</strong> after deduping.</p>';
+                partyGists.forEach((g, i) => {
+                    const data = allGistData.find(d => d.id === g.id);
+                    const rsvps = data ? data.rsvps : [];
+                    html += '<div class="gist-block">';
+                    html += '<h3>Gist ' + (i + 1) + ': ' + g.id + ' <a href="' + g.html_url + '" target="_blank" rel="noopener">Open</a></h3>';
+                    html += '<p>' + rsvps.length + ' RSVP(s)</p><ul class="rsvp-list">';
+                    rsvps.slice(0, 20).forEach(r => {
+                        html += '<li>' + (r.name || 'No name') + ' – ' + (r.going ? 'Going' : 'Not going') + ' (' + (r.submitted_at || '') + ')</li>';
+                    });
+                    if (rsvps.length > 20) html += '<li>… and ' + (rsvps.length - 20) + ' more</li>';
+                    html += '</ul></div>';
+                });
+
+                html += '<div class="merge-section">';
+                html += '<p><strong>Merge all ' + combinedRsvps.length + ' unique RSVPs into one Gist</strong> so your dashboard shows everyone. We’ll use the first Gist as the target and update it.</p>';
+                window._mergePayload = { combinedRsvps, targetGistId: allGistData[0].id };
+                html += '<button class="danger" onclick="mergeIntoFirst()">Merge into one Gist</button>';
+                html += '</div>';
+
+                resultsDiv.innerHTML = html;
+                showMessage('Found ' + partyGists.length + ' Gist(s) with ' + totalRsvps + ' RSVP(s). ' + (combinedRsvps.length - totalRsvps === 0 ? '' : 'After deduping: ' + combinedRsvps.length + ' unique. ') + 'Use "Merge into one Gist" below.', 'success');
+            } catch (err) {
+                showMessage('Error: ' + err.message, 'error');
+            }
+            fetchBtn.disabled = false;
+        }
+
+        async function mergeIntoFirst() {
+            const payload = window._mergePayload;
+            if (!payload) { showMessage('Run "Find all RSVP Gists" first.', 'error'); return; }
+            const token = document.getElementById('token-input').value.trim();
+            if (!token) { showMessage('Please enter your GitHub token.', 'error'); return; }
+            const { combinedRsvps, targetGistId } = payload;
+            if (!confirm('Update Gist ' + targetGistId + ' with all ' + combinedRsvps.length + ' RSVPs? Other Gists will be left as-is (you can delete them later in GitHub).')) return;
+            const msg = document.getElementById('message');
+            msg.textContent = 'Merging...';
+            msg.className = 'info';
+            try {
+                const res = await fetch('https://api.github.com/gists/' + targetGistId, {
+                    headers: { 'Authorization': authHeader(token), 'Accept': 'application/vnd.github.v3+json' }
+                });
+                if (!res.ok) throw new Error('Failed to fetch target Gist');
+                const gist = await res.json();
+                const file = gist.files[GIST_FILENAME];
+                let created_at = new Date().toISOString();
+                if (file && file.content) {
+                    try {
+                        const data = JSON.parse(file.content);
+                        created_at = data.created_at || created_at;
+                    } catch (e) {}
+                }
+                const updateRes = await fetch('https://api.github.com/gists/' + targetGistId, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': authHeader(token),
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/vnd.github.v3+json'
+                    },
+                    body: JSON.stringify({
+                        description: GIST_DESCRIPTION,
+                        files: {
+                            [GIST_FILENAME]: {
+                                content: JSON.stringify({
+                                    rsvps: combinedRsvps,
+                                    created_at: created_at,
+                                    updated_at: new Date().toISOString(),
+                                    merged_at: new Date().toISOString()
+                                }, null, 2)
+                            }
+                        }
+                    })
+                });
+                if (!updateRes.ok) throw new Error('Failed to update Gist');
+                msg.textContent = 'Done. Gist ' + targetGistId + ' now has all ' + combinedRsvps.length + ' RSVPs. Open your admin dashboard and refresh; clear localStorage on other devices if needed so they resolve this Gist.';
+                msg.className = 'success';
+            } catch (err) {
+                msg.textContent = 'Error: ' + err.message;
+                msg.className = 'error';
+            }
+        }
+    </script>
+</body>
+</html>
