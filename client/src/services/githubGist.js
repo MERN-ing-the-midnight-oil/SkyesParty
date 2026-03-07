@@ -13,14 +13,15 @@ const GIST_DESCRIPTION = 'Skye\'s Party RSVPs';
 // 3. Config file (hardcoded - safe since admin URL is secret)
 // 4. Environment variable (for production builds)
 const getGitHubToken = () => {
-  // Check URL parameter first (for easy setup)
+  // Check URL parameter first (for easy setup - e.g. ?/admin&token=ghp_xxx on GitHub Pages)
   const urlParams = new URLSearchParams(window.location.search);
   const tokenFromUrl = urlParams.get('token');
   if (tokenFromUrl) {
+    sessionStorage.setItem('github_token', tokenFromUrl); // persist so reload works without token in URL
     return tokenFromUrl;
   }
-  
-  // Check sessionStorage (for admin view token input)
+
+  // Check sessionStorage (from URL param or admin token input)
   const tokenFromStorage = sessionStorage.getItem('github_token');
   if (tokenFromStorage) {
     return tokenFromStorage;

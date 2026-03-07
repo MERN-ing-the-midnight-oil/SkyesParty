@@ -119,7 +119,9 @@ const AdminView = () => {
           <p style={{ marginBottom: '20px' }}>
             The admin dashboard needs a GitHub Personal Access Token to access your RSVPs stored in a GitHub Gist.
           </p>
-          
+          <p style={{ marginBottom: '16px', fontSize: '0.9rem', color: '#555' }}>
+            <strong>Tip:</strong> You can also open this page with <code>?/admin&token=YOUR_TOKEN</code> in the URL (same token as below). It will be saved for this browser session.
+          </p>
           <div style={{ 
             backgroundColor: '#f8f9fa', 
             padding: '15px', 
