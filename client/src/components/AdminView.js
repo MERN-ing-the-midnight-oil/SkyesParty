@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import './AdminView.css';
 import { getRSVPs, getDeletedRSVPs, getStats, clearAllRSVPs, deleteRSVP, undeleteRSVP } from '../services/githubGist';
+import { isBulkEmailConfigured, sendBulkAttendeeEmails } from '../services/emailService';
 
 const AdminView = () => {
   const [rsvps, setRsvps] = useState([]);
@@ -11,6 +12,22 @@ const AdminView = () => {
   const [tokenInput, setTokenInput] = useState('');
   const [showTokenInput, setShowTokenInput] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailProgress, setEmailProgress] = useState(null);
+
+  const rsvpsRef = useRef(rsvps);
+  useEffect(() => {
+    rsvpsRef.current = rsvps;
+  }, [rsvps]);
+
+  // Everyone with an email is selected by default; admin unchecks rows to exclude.
+  useEffect(() => {
+    const withEmail = rsvps.filter((r) => (r.email || '').trim());
+    setSelectedIds(new Set(withEmail.map((r) => r.id)));
+  }, [rsvps]);
 
   useEffect(() => {
     // Check if token is missing
@@ -109,6 +126,97 @@ const AdminView = () => {
       hour: 'numeric',
       minute: '2-digit'
     });
+  };
+
+  const rsvpsWithEmail = useMemo(
+    () => rsvps.filter((r) => (r.email || '').trim()),
+    [rsvps]
+  );
+
+  const selectedWithEmail = useMemo(() => {
+    return rsvpsWithEmail.filter((r) => selectedIds.has(r.id));
+  }, [rsvpsWithEmail, selectedIds]);
+
+  const toggleSelected = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllWithEmail = () => {
+    setSelectedIds(new Set(rsvpsWithEmail.map((r) => r.id)));
+  };
+
+  const clearEmailSelection = () => setSelectedIds(new Set());
+
+  const handleSendAttendeeEmail = async () => {
+    if (!isBulkEmailConfigured()) {
+      alert(
+        'Bulk email is not configured. Add REACT_APP_EMAILJS_BULK_TEMPLATE_ID to your build (see EmailJS bulk template in project docs).'
+      );
+      return;
+    }
+
+    const subject = emailSubject.trim();
+    const body = emailBody.trim();
+    if (!subject || !body) {
+      alert('Please enter a subject and message.');
+      return;
+    }
+
+    if (selectedWithEmail.length === 0) {
+      alert('Select at least one RSVP that has an email address.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Send this email to ${selectedWithEmail.length} recipient(s)?`
+    );
+    if (!confirmed) return;
+
+    setSendingEmail(true);
+    setEmailProgress({ current: 0, total: selectedWithEmail.length });
+    setError(null);
+
+    try {
+      const recipients = selectedWithEmail.map((r) => ({
+        email: r.email,
+        name: r.name,
+      }));
+
+      const result = await sendBulkAttendeeEmails(
+        recipients,
+        subject,
+        body,
+        ({ current, total }) => setEmailProgress({ current, total })
+      );
+
+      const failedMsg =
+        result.failed.length > 0
+          ? `\n\nFailed (${result.failed.length}):\n${result.failed
+              .map((f) => `${f.email}: ${f.error}`)
+              .join('\n')}`
+          : '';
+
+      alert(
+        `Sent: ${result.sent.length}.${result.failed.length > 0 ? ` Failed: ${result.failed.length}.` : ''}${failedMsg}`
+      );
+
+      if (result.sent.length > 0 && result.failed.length === 0) {
+        const withEmail = rsvpsRef.current.filter((r) => (r.email || '').trim());
+        setSelectedIds(new Set(withEmail.map((r) => r.id)));
+      }
+    } catch (err) {
+      console.error('Send attendee email error:', err);
+      setError(err.message || 'Failed to send emails');
+      alert(err.message || 'Failed to send emails');
+    } finally {
+      setSendingEmail(false);
+      setEmailProgress(null);
+    }
   };
 
   if (showTokenInput) {
@@ -324,6 +432,102 @@ const AdminView = () => {
 
       <div className="rsvps-section">
         <h2>RSVP Management</h2>
+
+        {!showDeleted && rsvps.length > 0 && (
+          <div className="email-attendees-panel">
+            <h3 className="email-attendees-heading">Email attendees</h3>
+            {rsvpsWithEmail.length === 0 && (
+              <p className="email-config-hint">
+                No active RSVPs include an email address yet. Guests who RSVP with an email can be messaged here.
+              </p>
+            )}
+            {!isBulkEmailConfigured() ? (
+              <p className="email-config-hint">
+                To email guests from the admin dashboard, configure EmailJS with{' '}
+                <code>REACT_APP_EMAILJS_BULK_TEMPLATE_ID</code> (separate from the RSVP notification template).
+                The template should send to <code>{'{{to_email}}'}</code> and include{' '}
+                <code>to_name</code>, <code>subject</code>, and <code>message</code> in the body.
+              </p>
+            ) : (
+              <>
+                <p className="email-selection-summary">
+                  {selectedWithEmail.length} of {rsvpsWithEmail.length} with email selected
+                  <span className="email-selection-hint">
+                    {' '}
+                    (everyone starts selected—uncheck to exclude)
+                  </span>
+                  {emailProgress && (
+                    <span className="email-send-progress">
+                      {' '}
+                      · Sending {emailProgress.current} / {emailProgress.total}
+                    </span>
+                  )}
+                </p>
+                <div className="email-attendees-actions">
+                  <button
+                    type="button"
+                    className="email-secondary-button"
+                    onClick={selectAllWithEmail}
+                    disabled={sendingEmail || rsvpsWithEmail.length === 0}
+                  >
+                    Select all with email
+                  </button>
+                  <button
+                    type="button"
+                    className="email-secondary-button"
+                    onClick={clearEmailSelection}
+                    disabled={sendingEmail || selectedIds.size === 0}
+                  >
+                    Clear selection
+                  </button>
+                </div>
+                <div className="email-compose-row">
+                  <label className="email-compose-label" htmlFor="admin-email-subject">
+                    Subject
+                  </label>
+                  <input
+                    id="admin-email-subject"
+                    type="text"
+                    className="email-compose-input"
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
+                    placeholder="e.g. Update about the party"
+                    disabled={sendingEmail}
+                  />
+                </div>
+                <div className="email-compose-row">
+                  <label className="email-compose-label" htmlFor="admin-email-body">
+                    Message
+                  </label>
+                  <textarea
+                    id="admin-email-body"
+                    className="email-compose-textarea"
+                    value={emailBody}
+                    onChange={(e) => setEmailBody(e.target.value)}
+                    placeholder="Write your message to selected guests…"
+                    rows={5}
+                    disabled={sendingEmail}
+                  />
+                </div>
+                <div className="email-compose-footer">
+                  <button
+                    type="button"
+                    className="email-send-button"
+                    onClick={handleSendAttendeeEmail}
+                    disabled={
+                      sendingEmail ||
+                      selectedWithEmail.length === 0 ||
+                      !emailSubject.trim() ||
+                      !emailBody.trim()
+                    }
+                  >
+                    {sendingEmail ? 'Sending…' : 'Send email to selected'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
         
         {rsvps.length === 0 && deletedRsvps.length === 0 ? (
           <div className="no-rsvps">
@@ -356,6 +560,9 @@ const AdminView = () => {
                   <table className="rsvps-table">
                     <thead>
                       <tr>
+                        <th className="th-select">
+                          <span className="sr-only">Select</span>
+                        </th>
                         <th>Name</th>
                         <th>Email</th>
                         <th>Status</th>
@@ -367,30 +574,44 @@ const AdminView = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {rsvps.map((rsvp) => (
-                        <tr key={rsvp.id} className={rsvp.going ? 'going-row' : 'not-going-row'}>
-                          <td>{rsvp.name || <em>No name</em>}</td>
-                          <td>{rsvp.email || <em>No email</em>}</td>
-                          <td>
-                            <span className={`status-badge ${rsvp.going ? 'going' : 'not-going'}`}>
-                              {rsvp.going ? '✅ Going' : '❌ Not Going'}
-                            </span>
-                          </td>
-                          <td>{rsvp.num_adults || 0}</td>
-                          <td>{rsvp.num_kids || 0}</td>
-                          <td><strong>{rsvp.num_adults + rsvp.num_kids}</strong></td>
-                          <td>{formatDate(rsvp.submitted_at)}</td>
-                          <td>
-                            <button
-                              onClick={() => handleDeleteRSVP(rsvp.id)}
-                              className="delete-button"
-                              title="Delete this RSVP"
-                            >
-                              🗑️ Delete
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                      {rsvps.map((rsvp) => {
+                        const hasEmail = Boolean((rsvp.email || '').trim());
+                        return (
+                          <tr key={rsvp.id} className={rsvp.going ? 'going-row' : 'not-going-row'}>
+                            <td className="td-select">
+                              <input
+                                type="checkbox"
+                                className="rsvp-select-checkbox"
+                                checked={selectedIds.has(rsvp.id)}
+                                onChange={() => toggleSelected(rsvp.id)}
+                                disabled={!hasEmail || sendingEmail}
+                                title={hasEmail ? 'Select for email' : 'No email on this RSVP'}
+                                aria-label={hasEmail ? `Select ${rsvp.name || rsvp.email} for email` : 'No email'}
+                              />
+                            </td>
+                            <td>{rsvp.name || <em>No name</em>}</td>
+                            <td>{rsvp.email || <em>No email</em>}</td>
+                            <td>
+                              <span className={`status-badge ${rsvp.going ? 'going' : 'not-going'}`}>
+                                {rsvp.going ? '✅ Going' : '❌ Not Going'}
+                              </span>
+                            </td>
+                            <td>{rsvp.num_adults || 0}</td>
+                            <td>{rsvp.num_kids || 0}</td>
+                            <td><strong>{(rsvp.num_adults || 0) + (rsvp.num_kids || 0)}</strong></td>
+                            <td>{formatDate(rsvp.submitted_at)}</td>
+                            <td>
+                              <button
+                                onClick={() => handleDeleteRSVP(rsvp.id)}
+                                className="delete-button"
+                                title="Delete this RSVP"
+                              >
+                                🗑️ Delete
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 )}

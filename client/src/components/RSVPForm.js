@@ -13,7 +13,6 @@ const RSVPForm = () => {
     message: ''
   });
   const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
@@ -53,7 +52,6 @@ const RSVPForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    setMessage(null);
     setError(null);
 
     // Validate required fields
@@ -87,7 +85,6 @@ const RSVPForm = () => {
       };
 
       await submitRSVP(rsvpData);
-      setMessage('Thank you! Your RSVP has been submitted successfully! 🎉');
       setShowSuccessPopup(true);
       
       // Reset form
